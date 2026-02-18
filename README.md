@@ -1,2 +1,2 @@
-# mosaic
-Multimodal Oncologic Spike-and-slab Aggregation for Imaging Classification
+#RISM 
+Radiomic feature Integration with Spike-and-slab for Multimodal survival analysis
