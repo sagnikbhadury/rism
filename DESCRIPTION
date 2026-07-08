@@ -1,0 +1,21 @@
+Package: rism
+Type: Package
+Title: Radiomic Feature Integration with Spike-and-Slab for Multimodal Survival Analysis
+Version: 0.1.0
+Authors@R: person("Sagnik", "Bhadury", email = "bhadury@umich.edu", role = c("aut", "cre"))
+Description: Fits a Cox proportional hazards model with a grouped
+    spike-and-slab prior over predictor groups (e.g. radiomic feature
+    families, or feature groups from different data modalities), via a
+    Metropolis-Hastings / Gibbs MCMC sampler with adaptive proposal scaling
+    and likelihood tempering during burn-in. Provides posterior inclusion
+    probabilities per group, posterior summaries for the regression
+    coefficients, and convergence diagnostics.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+    stats,
+    graphics
+Suggests:
+    coda
+RoxygenNote: 7.3.1

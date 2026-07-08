@@ -1,11 +1,10 @@
-###############################################################
-### Cox Model with Grouped Spike-and-Slab Prior             ###
-### Key fixes:                                               ###
-###   1. Zeta update now includes Cox likelihood             ###
-###   2. Group-adaptive MH proposal scaling                  ###
-###   3. Tempering during burnin for better mixing           ###
-###   4. Sensible defaults for simulation (faster + correct) ###
-###############################################################
+## Cox model with grouped spike-and-slab prior
+##
+## Key fixes (relative to an earlier draft, kept here for context):
+##   1. Zeta update now includes Cox likelihood
+##   2. Group-adaptive MH proposal scaling
+##   3. Tempering during burnin for better mixing
+##   4. Sensible defaults for simulation (faster + correct)
 
 #' MCMC for Cox model with grouped spike-and-slab prior
 #'
@@ -34,7 +33,6 @@
 #' @param seed random seed. Default NULL.
 #' @return List with MCMC samples and diagnostics.
 #' @export
-
 groupSS_cox_final = function(time, status, X, g_id,
                              beta_init  = NULL, zeta_init = NULL,
                              w_init     = NULL, nusq_init = NULL,
@@ -259,9 +257,15 @@ groupSS_cox_final = function(time, status, X, g_id,
   )
 }
 
-#-------------------------------------------------------------------------------
-# Cox partial log-likelihood (Breslow approximation, sorted input)
-#-------------------------------------------------------------------------------
+#' Cox partial log-likelihood (Breslow approximation, sorted input)
+#'
+#' @param beta coefficient vector
+#' @param X_ord predictor matrix, pre-sorted by \code{time_ord}
+#' @param time_ord survival times, sorted ascending
+#' @param status_ord event indicators, in the same order as \code{time_ord}
+#' @return The Cox partial log-likelihood (Breslow tie handling).
+#' @keywords internal
+#' @noRd
 cox_loglik_fast = function(beta, X_ord, time_ord, status_ord) {
   eta        = as.vector(X_ord %*% beta)
   eta        = pmin(pmax(eta, -100), 100)
@@ -271,18 +275,25 @@ cox_loglik_fast = function(beta, X_ord, time_ord, status_ord) {
   sum(status_ord * (eta - log(risk_set)))
 }
 
-#-------------------------------------------------------------------------------
-# Posterior inclusion probabilities
-#-------------------------------------------------------------------------------
+#' Posterior inclusion probabilities
+#'
+#' @param fit Output of \code{\link{groupSS_cox_final}}.
+#' @return A named numeric vector of posterior inclusion probabilities, one
+#'   per group.
+#' @export
 compute_PIP = function(fit) {
   pip = colMeans(fit$zeta)
   names(pip) = paste0("Group", seq_len(ncol(fit$zeta)))
   pip
 }
 
-#-------------------------------------------------------------------------------
-# Posterior summary for beta
-#-------------------------------------------------------------------------------
+#' Posterior summary for beta
+#'
+#' @param fit Output of \code{\link{groupSS_cox_final}}.
+#' @param prob Credible interval coverage. Default 0.95.
+#' @return A data frame with one row per predictor: posterior mean, median,
+#'   SD, and credible interval.
+#' @export
 summarize_beta = function(fit, prob = 0.95) {
   alpha = 1 - prob
   data.frame(
@@ -297,31 +308,44 @@ summarize_beta = function(fit, prob = 0.95) {
   )
 }
 
-#-------------------------------------------------------------------------------
-# Trace plot for zeta
-#-------------------------------------------------------------------------------
+#' Trace plot for zeta (group inclusion indicators)
+#'
+#' @param fit Output of \code{\link{groupSS_cox_final}}.
+#' @param group_names Optional character vector of group labels.
+#' @return Invisibly \code{NULL}; called for its plotting side effect.
+#' @export
 plot_zeta_trace = function(fit, group_names = NULL) {
   G = ncol(fit$zeta)
   if (is.null(group_names)) group_names = paste0("Group ", seq_len(G))
-  par(mfrow = c(ceiling(G / 2), 2), mar = c(3, 4, 2, 1))
+  op = par(mfrow = c(ceiling(G / 2), 2), mar = c(3, 4, 2, 1))
+  on.exit(par(op), add = TRUE)
   for (g in seq_len(G)) {
     plot(fit$zeta[, g], type = "l",
          main = group_names[g], ylab = "Indicator",
          xlab = "Post-burnin iteration", ylim = c(-0.1, 1.1))
     abline(h = 0.5, col = "red", lty = 2)
   }
-  par(mfrow = c(1, 1))
 }
 
-#-------------------------------------------------------------------------------
-# Convergence diagnostics
-#-------------------------------------------------------------------------------
+#' Convergence diagnostics (effective sample size, log-posterior trace)
+#'
+#' Requires the \pkg{coda} package.
+#'
+#' @param fit Output of \code{\link{groupSS_cox_final}}.
+#' @return Invisibly, a list with \code{beta_ess}, \code{pip_ess}, and
+#'   \code{w_ess}. Also plots the log-posterior trace if
+#'   \code{fit$log_posterior} is present, and warns if any effective sample
+#'   size is below 100.
+#' @export
 check_convergence = function(fit) {
-  library(coda)
+  if (!requireNamespace("coda", quietly = TRUE)) {
+    stop("Package 'coda' is required for check_convergence(). ",
+         "Install it with install.packages(\"coda\").", call. = FALSE)
+  }
   ess = list(
-    beta_ess = apply(fit$beta, 2, function(x) effectiveSize(mcmc(x))),
-    pip_ess  = apply(fit$zeta, 2, function(x) effectiveSize(mcmc(x))),
-    w_ess    = effectiveSize(mcmc(fit$w))
+    beta_ess = apply(fit$beta, 2, function(x) coda::effectiveSize(coda::mcmc(x))),
+    pip_ess  = apply(fit$zeta, 2, function(x) coda::effectiveSize(coda::mcmc(x))),
+    w_ess    = coda::effectiveSize(coda::mcmc(fit$w))
   )
   if (!is.null(fit$log_posterior)) {
     plot(fit$log_posterior, type = "l",
