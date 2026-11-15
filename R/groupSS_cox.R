@@ -243,7 +243,7 @@ groupSS_cox_final = function(time, status, X, g_id,
     zeta              = zeta_store,
     w                 = w_store,
     log_posterior     = log_post_store,
-    x_cnames          = colnames(X),
+    x_cnames          = if (is.null(colnames(X))) paste0("X", seq_len(nc)) else colnames(X),
     g_id              = g_id,
     acceptance_rates_beta  = accept_count_beta  / Nmcmc,
     acceptance_rates_zeta  = accept_count_zeta  / Nmcmc,
@@ -267,11 +267,15 @@ groupSS_cox_final = function(time, status, X, g_id,
 #' @keywords internal
 #' @noRd
 cox_loglik_fast = function(beta, X_ord, time_ord, status_ord) {
-  eta        = as.vector(X_ord %*% beta)
-  eta        = pmin(pmax(eta, -100), 100)
-  risk_score = exp(eta)
-  risk_set   = rev(cumsum(rev(risk_score)))
-  risk_set   = pmax(risk_set, 1e-300)
+  eta      = as.vector(X_ord %*% beta)
+  # The partial likelihood is unchanged when a constant is added to the linear
+  # predictor, so the maximum is subtracted for numerical stability. (Version
+  # 0.1.0 clamped eta to [-100, 100] instead, which returned a wrong, flat
+  # likelihood whenever predictors were not centred and scaled.)
+  eta      = eta - max(eta)
+  risk_set = rev(cumsum(rev(exp(eta))))
+  # Breslow risk set for tied times: all subjects with time >= t
+  if (anyDuplicated(time_ord)) risk_set = risk_set[match(time_ord, time_ord)]
   sum(status_ord * (eta - log(risk_set)))
 }
 
