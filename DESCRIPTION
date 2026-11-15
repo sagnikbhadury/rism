@@ -1,21 +1,26 @@
 Package: rism
 Type: Package
 Title: Radiomic Feature Integration with Spike-and-Slab for Multimodal Survival Analysis
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: person("Sagnik", "Bhadury", email = "bhadury@umich.edu", role = c("aut", "cre"))
-Description: Fits a Cox proportional hazards model with a grouped
-    spike-and-slab prior over predictor groups (e.g. radiomic feature
-    families, or feature groups from different data modalities), via a
-    Metropolis-Hastings / Gibbs MCMC sampler with adaptive proposal scaling
-    and likelihood tempering during burn-in. Provides posterior inclusion
-    probabilities per group, posterior summaries for the regression
-    coefficients, and convergence diagnostics.
+Description: Group selection for the Cox proportional hazards model when
+    predictors come in groups (e.g. principal component scores of a tumor
+    boundary or of an intensity density from one imaging sequence). Two methods
+    are provided. Group BMA enumerates the group-inclusion models (or searches
+    them by Markov chain Monte Carlo model composition) with a point-mass
+    spike, a Gaussian slab, Laplace-approximated marginal likelihoods of the
+    partial likelihood, a beta-binomial prior on the number of groups and an
+    empirical-Bayes slab variance. Grouped SS samples a continuous grouped
+    spike-and-slab prior by Metropolis-Hastings within Gibbs. Both return
+    posterior inclusion probabilities per group and posterior summaries of the
+    coefficients; pre-validated risk scores and a permutation reference for the
+    inclusion probabilities are provided for Group BMA.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Imports:
     stats,
     graphics
 Suggests:
-    coda
-RoxygenNote: 7.3.1
+    coda,
+    survival
+Config/roxygen2/version: 8.0.0
