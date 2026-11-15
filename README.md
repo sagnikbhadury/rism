@@ -31,6 +31,7 @@ and the smallest coefficient error in 14.
 - [Preparing your data](#preparing-your-data)
 - [Group BMA](#group-bma)
 - [Grouped SS](#grouped-ss)
+- [Example data: Wisconsin Prognostic Breast Cancer](#example-data-wisconsin-prognostic-breast-cancer)
 - [How much data the methods need](#how-much-data-the-methods-need)
 - [Function reference](#function-reference)
 - [Version notes](#version-notes)
@@ -207,6 +208,45 @@ check_convergence(fit)    # effective sample sizes (needs coda)
   (Vehtari et al., 2021).
 - **Always centre and scale `X`.**
 
+## Example data: Wisconsin Prognostic Breast Cancer
+
+The package includes the Wisconsin Prognostic Breast Cancer data (`wpbc`): 198
+patients with invasive breast cancer, time to recurrence (47 recurrences), 30
+features of the cell nuclei on a digitised image of a fine needle aspirate, tumor
+size and the number of positive lymph nodes. The image features come in ten
+natural groups (radius, texture, perimeter, area, smoothness, compactness,
+concavity, concave points, symmetry, fractal dimension), each with its mean,
+standard error and worst value. `wpbc_groups()` returns the complete cases with
+the predictors arranged by group.
+
+```r
+library(rism)
+data(wpbc)                       # the data frame, see ?wpbc
+w <- wpbc_groups()               # time, status, X (194 x 32), g_id, group_names
+
+fit <- rism_bma(w$time, w$status, scale(w$X), w$g_id, group_names = w$group_names)
+round(fit$pip, 2)                # 12 groups, 4,096 models; about a minute per candidate
+                                 # slab variance (six by default); use v = 0.25 for one
+
+ss <- groupSS_cox_final(w$time, w$status, scale(w$X), w$g_id,
+                        v0 = 0.05, v1 = 2.5, a1 = 5, a2 = 5, seed = 1, verbose = FALSE)
+round(compute_PIP(ss), 2)        # about 1.5 minutes; choose v0 as described under Grouped SS
+```
+
+Here the three summaries of a characteristic are on different scales, so the
+columns are standardised with `scale()`; `group_scale()` is meant for groups of
+principal component scores.
+
+**Source and licence of the data.** Wolberg, W., Street, W. and Mangasarian, O.
+(1995). *Breast Cancer Wisconsin (Prognostic)* [Dataset]. UCI Machine Learning
+Repository. https://doi.org/10.24432/C5GK50. The data are distributed under the
+Creative Commons Attribution 4.0 International (CC BY 4.0) licence; the copy in
+this package was taken from the R package `TH.data`. If you use the data, cite
+the data set above and Street, Mangasarian and Wolberg (1995), "An inductive
+learning approach to prognostic prediction", *Proceedings of the Twelfth
+International Conference on Machine Learning*, 522-530. The MIT licence of this
+package applies to the code, not to the data.
+
 ## How much data the methods need
 
 Group selection needs events. In the simulation study (22 predictors in six
@@ -231,12 +271,14 @@ effect to see whether it is recovered at your number of events.
 | `rism_prevalidate(time, status, X, g_id, folds, v, always)` | pre-validated risk scores |
 | `rism_permute(time, status, X, g_id, perm_cols, B, v, always, seed)` | permutation reference for the PIPs |
 | `groupSS_cox_final(time, status, X, g_id, ...)` | Grouped SS sampler |
+| `wpbc`, `wpbc_groups()` | example data and its group structure |
 | `compute_PIP(fit)`, `summarize_beta(fit)`, `plot_zeta_trace(fit)`, `check_convergence(fit)` | summaries and diagnostics of a Grouped SS fit |
 
 Each function has a help page (`?rism_bma`, `?groupSS_cox_final`, ...).
 
 ## Version notes
 
+- **0.2.1.** Added the Wisconsin Prognostic Breast Cancer data (`wpbc`, `wpbc_groups()`).
 - **0.2.0.** Added Group BMA (`rism_bma`, `rism_mc3`, `group_scale`,
   `rism_prevalidate`, `rism_permute`).
 - **0.1.1.** The partial likelihood of Grouped SS no longer clamps the linear

@@ -7,6 +7,9 @@ export(rism_mc3)
 export(rism_prevalidate)
 export(rism_permute)
 
+# Example data
+export(wpbc_groups)
+
 # Grouped SS (MCMC with a continuous grouped spike-and-slab prior)
 export(groupSS_cox_final)
 export(compute_PIP)
