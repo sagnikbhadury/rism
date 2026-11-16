@@ -205,7 +205,8 @@ rism_permute = function(time, status, X, g_id, perm_cols, B = 200, v = c(0.05, 0
 #' @param init starting inclusion pattern (0/1 vector of length G); default all excluded.
 #' @param seed random seed.
 #' @return A list with \code{pip}, \code{visited} (distinct models visited, with log marginal
-#'   likelihood and visit frequency), \code{accept} (acceptance rate) and \code{gamma} (the chain).
+#'   likelihood and visit frequency), \code{accept} (acceptance rate), \code{gamma} (the chain) and
+#'   \code{logpost} (log posterior, up to a constant, of the model at each iteration, for trace plots).
 #' @export
 rism_mc3 = function(time, status, X, g_id, v = 1, n_iter = 20000, burnin = 2000, init = NULL, group_names = NULL, seed = NULL) {
   if (!is.null(seed)) set.seed(seed)
@@ -223,16 +224,16 @@ rism_mc3 = function(time, status, X, g_id, v = 1, n_iter = 20000, burnin = 2000,
   }
   g = if (is.null(init)) integer(G) else as.integer(init)
   cur = lpost(g); acc = 0; total = n_iter + burnin
-  chain = matrix(0L, n_iter, G)
+  chain = matrix(0L, n_iter, G); lp_trace = numeric(n_iter)
   for (it in seq_len(total)) {
     j = sample.int(G, 1); gp = g; gp[j] = 1L - gp[j]
     new = lpost(gp)
     if (log(stats::runif(1)) < new - cur) { g = gp; cur = new; if (it > burnin) acc = acc + 1 }
-    if (it > burnin) chain[it - burnin, ] = g
+    if (it > burnin) { chain[it - burnin, ] = g; lp_trace[it - burnin] = cur }
   }
   pip = colMeans(chain); names(pip) = group_names
   keys = apply(chain, 1, paste, collapse = ""); tab = sort(table(keys), decreasing = TRUE)
   visited = data.frame(model = names(tab), frequency = as.numeric(tab) / n_iter,
                        log_posterior_unnormalised = sapply(names(tab), function(k) cache[[k]]), row.names = NULL)
-  list(pip = pip, visited = visited, accept = acc / n_iter, gamma = chain, v = v)
+  list(pip = pip, visited = visited, accept = acc / n_iter, gamma = chain, logpost = lp_trace, v = v)
 }

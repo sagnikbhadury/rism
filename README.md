@@ -21,6 +21,11 @@ Two methods are provided.
 | Speed (61 subjects, 42 predictors, 7 groups) | about 3 seconds | about 45 seconds per chain |
 | Recommended | **yes, as the default** | for comparison, or when a fully sampled posterior of the coefficients is wanted |
 
+The two methods belong to the same class of models: a Cox proportional hazards
+model with a spike-and-slab prior on groups of coefficients. They differ in the
+spike (a point mass or a narrow Gaussian) and in the computation (enumeration
+with the coefficients integrated out, or MCMC).
+
 In the simulation study of the accompanying manuscript (450 data sets, six
 methods) Group BMA had the highest F1 for group selection in 10 of 15 scenarios
 and the smallest coefficient error in 14.
@@ -32,6 +37,7 @@ and the smallest coefficient error in 14.
 - [Group BMA](#group-bma)
 - [Grouped SS](#grouped-ss)
 - [Example data: Wisconsin Prognostic Breast Cancer](#example-data-wisconsin-prognostic-breast-cancer)
+- [Results in the accompanying manuscript](#results-in-the-accompanying-manuscript)
 - [How much data the methods need](#how-much-data-the-methods-need)
 - [Function reference](#function-reference)
 - [Version notes](#version-notes)
@@ -86,6 +92,27 @@ a group is the total probability of the models that contain it. A group is
 selected when its PIP exceeds 0.5 (the median probability model). The slab
 variance `v` is either given or chosen among candidate values by empirical
 Bayes, i.e. by maximising the marginal likelihood summed over the models.
+
+### The algorithm
+
+`rism_bma` carries out the following steps (Algorithm 1 of the manuscript).
+
+1. Sort the subjects by time. (Scale the predictors beforehand, see
+   [Preparing your data](#preparing-your-data).)
+2. For each candidate slab variance `v` and each of the 2^G models: find the
+   posterior mode of the included coefficients by Newton's method (maximising
+   the log partial likelihood minus `sum(beta^2) / (2 v)`), and compute the
+   Laplace approximation to the log marginal likelihood of the model.
+3. For each `v`, sum the marginal likelihoods over the models, weighted by the
+   model prior. Keep the `v` with the largest sum (empirical Bayes).
+4. At that `v`, normalise marginal likelihood times prior over the models to
+   obtain the posterior model probabilities.
+5. The PIP of a group is the sum of the probabilities of the models that
+   contain it; the coefficients are averaged over the models, with zeros for
+   excluded groups.
+
+No step uses random numbers, so the result is the same on every run and there
+is no chain to monitor. The cost is (number of candidate `v`) x 2^G Newton fits.
 
 ### Quick start
 
@@ -157,6 +184,27 @@ that the PIPs agree.
   ```r
   ref <- rism_permute(time, status, Z, g_id, perm_cols = 3:6, B = 200)
   apply(ref, 2, quantile, 0.95)      # 95th percentile of the PIP under no association
+  ```
+
+- **Stochastic-search check and trace plots.** `rism_bma` has no chain, but the
+  same posterior over models can be sampled with `rism_mc3`. Running a few
+  chains from different starting models gives trace plots and an independent
+  check of the enumerated PIPs.
+
+  ```r
+  G      <- max(g_id)
+  starts <- list(integer(G), rep(1L, G))            # no group, all groups
+  chains <- lapply(seq_along(starts), function(k)
+    rism_mc3(time, status, Z, g_id, v = fit$v, n_iter = 20000, burnin = 2000,
+             init = starts[[k]], seed = k))
+
+  sapply(chains, `[[`, "pip")                       # compare with fit$pip
+  matplot(sapply(chains, `[[`, "logpost"), type = "l", lty = 1,
+          xlab = "Iteration", ylab = "Log posterior of the model")
+  running <- sapply(chains, function(f) cumsum(f$gamma[, 1]) / seq_len(nrow(f$gamma)))
+  matplot(running, type = "l", lty = 1, ylim = c(0, 1),
+          xlab = "Iteration", ylab = "Running PIP of group 1")
+  abline(h = fit$pip[1], lty = 2)                   # enumerated value
   ```
 
 - **Accuracy of the Laplace approximation.** It is accurate to a few tenths of a
@@ -247,6 +295,33 @@ learning approach to prognostic prediction", *Proceedings of the Twelfth
 International Conference on Machine Learning*, 522-530. The MIT licence of this
 package applies to the code, not to the data.
 
+## Results in the accompanying manuscript
+
+The manuscript applies both methods to two cohorts.
+
+**Lower-grade glioma (61 patients, 14 deaths; 42 predictors in 7 groups).** The
+groups are age, the Karnofsky performance score (KPS), the shape of the tumor
+boundary (23 PC scores) and the intensity densities of four MRI sequences. Group
+BMA retains KPS (PIP 0.99); age is borderline (0.46). No imaging group reaches
+0.5 (T1Gd 0.24, T1 0.10, the others below 0.03), and under permutation of the
+imaging scores the observed PIP of T1Gd is exceeded 18% of the time. With 14
+deaths, a prognostic contribution of the imaging groups is not established. The
+image-derived scores of this cohort are not distributed with the package.
+
+**Breast cancer recurrence (`wpbc`; 194 complete cases, 46 recurrences; 32
+predictors in 12 groups).** Group BMA gives the largest PIPs among the image
+features to the three groups that measure the size of the nuclei (perimeter
+0.59, area 0.50, radius 0.49), the only groups above the 95th percentile of the
+permutation reference. These three are nearly collinear, and the probability
+that at least one of them is in the model is 0.97 (prior 0.75). Grouped SS, with
+the spike variance chosen by pre-validation, gives every group a PIP below 0.04.
+
+**Convergence.** Group BMA is computed by enumeration. As a check, four
+`rism_mc3` chains per cohort (20,000 iterations each) gave PIPs within 0.02
+(glioma) and 0.04 (breast cancer) of the enumerated values. The four Grouped SS
+chains per cohort had rank-normalised R-hat of at most 1.002. Trace plots of
+both are in the supplement of the manuscript.
+
 ## How much data the methods need
 
 Group selection needs events. In the simulation study (22 predictors in six
@@ -278,6 +353,10 @@ Each function has a help page (`?rism_bma`, `?groupSS_cox_final`, ...).
 
 ## Version notes
 
+- **0.2.2.** `rism_mc3` also returns `logpost`, the log posterior (up to a
+  constant) of the model at each iteration, for trace plots. README: the
+  algorithm of Group BMA, the stochastic-search check, and the results of the
+  two applications of the manuscript.
 - **0.2.1.** Added the Wisconsin Prognostic Breast Cancer data (`wpbc`, `wpbc_groups()`).
 - **0.2.0.** Added Group BMA (`rism_bma`, `rism_mc3`, `group_scale`,
   `rism_prevalidate`, `rism_permute`).
@@ -292,6 +371,8 @@ Each function has a help page (`?rism_bma`, `?groupSS_cox_final`, ...).
 
 - George, E. I. and Foster, D. P. (2000). Calibration and empirical Bayes
   variable selection. *Biometrika* 87, 731-747.
+- Madigan, D. and York, J. (1995). Bayesian graphical models for discrete data.
+  *International Statistical Review* 63, 215-232.
 - Raftery, A. E. (1996). Approximate Bayes factors and accounting for model
   uncertainty in generalised linear models. *Biometrika* 83, 251-266.
 - Scott, J. G. and Berger, J. O. (2010). Bayes and empirical-Bayes multiplicity

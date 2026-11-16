@@ -1,7 +1,7 @@
 Package: rism
 Type: Package
 Title: Radiomic Feature Integration with Spike-and-Slab for Multimodal Survival Analysis
-Version: 0.2.1
+Version: 0.2.2
 Authors@R: person("Sagnik", "Bhadury", email = "bhadury@umich.edu", role = c("aut", "cre"))
 Description: Group selection for the Cox proportional hazards model when
     predictors come in groups (e.g. principal component scores of a tumor

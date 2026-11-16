@@ -40,7 +40,8 @@ rism_mc3(
 }
 \value{
 A list with \code{pip}, \code{visited} (distinct models visited, with log marginal
-  likelihood and visit frequency), \code{accept} (acceptance rate) and \code{gamma} (the chain).
+  likelihood and visit frequency), \code{accept} (acceptance rate), \code{gamma} (the chain) and
+  \code{logpost} (log posterior, up to a constant, of the model at each iteration, for trace plots).
 }
 \description{
 For more than about 15 groups the 2^G models cannot be enumerated. This function runs the
